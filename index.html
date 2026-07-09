@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>供應鏈與倉儲物流戰情室 - 登入（Demo 展示模式）</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="min-h-screen bg-[#0f1c3f] flex items-center justify-center p-4">
+
+  <div class="w-full max-w-md">
+    <!-- Logo / 標題 -->
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 text-white text-2xl font-bold shadow-lg mb-4">📦</div>
+      <h1 class="text-2xl font-bold text-white">供應鏈與倉儲物流戰情室</h1>
+      <p class="text-slate-400 text-sm mt-1">Supply Chain &amp; Warehouse Logistics War Room</p>
+    </div>
+
+    <!-- 登入卡片 -->
+    <div class="bg-white rounded-2xl shadow-2xl p-8">
+      <!-- Demo 展示模式標示：本頁為前端功能演示，非正式帳密驗證，正式環境須由後端 CheckUserId API 驗證 -->
+      <div class="mb-4 rounded-lg bg-amber-50 border border-amber-300 text-amber-800 text-xs px-4 py-2.5 flex items-start gap-2">
+        <span>🔧</span>
+        <span><strong>Demo 展示模式</strong>：以下帳號驗證與鎖定機制僅為前端功能演示（非正式安全機制），正式環境將改由後端 CheckUserId API 驗證。</span>
+      </div>
+
+      <h2 class="text-lg font-semibold text-slate-800 mb-6">帳號登入（展示用）</h2>
+
+      <!-- 鎖定提示（模擬展示，非真實安全控制） -->
+      <div id="lockout-banner" class="hidden mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3">
+        帳號已鎖定（展示模擬），請於 <span id="lockout-countdown" class="font-bold">15:00</span> 後再試。
+      </div>
+
+      <!-- 一般錯誤訊息 -->
+      <div id="error-banner" class="hidden mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3"></div>
+
+      <form id="login-form" class="space-y-4" autocomplete="off">
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">帳號</label>
+          <input id="user-id" name="user-id" type="text" maxlength="15" required
+                 class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                 placeholder="請輸入帳號（最長15碼）">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-600 mb-1">密碼</label>
+          <input id="password" name="password" type="password" maxlength="30" required
+                 class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                 placeholder="請輸入密碼（最長30碼）">
+        </div>
+
+        <div class="flex items-center justify-between text-xs text-slate-500">
+          <label class="flex items-center gap-1.5">
+            <input id="remember-me" type="checkbox" class="rounded">記住我的帳號
+          </label>
+          <span id="attempts-left"></span>
+        </div>
+
+        <button id="login-btn" type="submit"
+                class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition">
+          登入
+        </button>
+      </form>
+
+      <div class="mt-6 pt-4 border-t border-slate-100 text-xs text-slate-400 leading-relaxed">
+        <p class="font-medium text-slate-500 mb-1">Demo 測試帳號</p>
+        <p>管理員：admin / admin123（可進階設定、資料變更）</p>
+        <p>一般使用者：viewer / viewer123（僅檢視儀表板）</p>
+      </div>
+    </div>
+
+    <p class="text-center text-slate-500 text-xs mt-6">© 2026 供應鏈與倉儲物流戰情室．內部系統，請勿外流</p>
+  </div>
+
+<script>
+/* ==========================================================================
+ * 登入邏輯
+ * 串接規範參考 FME CheckUserId API（fme-auth-api skill）
+ * 正式環境請由後端/伺服器端代理呼叫 https://eip.fme.com.tw/FMEIP/AasApi/CheckUserId
+ * 避免瀏覽器端直接呼叫造成 CORS 與帳密外洩風險。
+ * ========================================================================== */
+
+const MAX_ATTEMPTS = 5;          // 管理員可於「系統設定」調整
+const LOCKOUT_MINUTES = 15;
+const LOCK_KEY_PREFIX = "scw_lock_";
+const ATTEMPT_KEY_PREFIX = "scw_attempts_";
+
+// ⚠️ DEMO_MODE：僅供前端原型展示使用。
+// 正式環境上線前，必須移除 DEMO_USERS 與 demoCheckUserId()，改由後端代理呼叫 CheckUserId API 驗證，
+// 角色權限亦須由後端資料庫回應（見 db/migrations/002_init.sql 的 users 表），不可信任前端硬編碼帳密。
+const DEMO_MODE = true;
+const DEMO_USERS = {
+  "admin":  { password: "admin123",  role: "admin",   name: "系統管理員" },
+  "viewer": { password: "viewer123", role: "general", name: "倉儲主管" }
+};
+if (DEMO_MODE) {
+  console.warn("[安全提醒] 目前為 DEMO_MODE，帳號密碼驗證僅在瀏覽器端模擬，正式環境請勿部署此模式。");
+}
+
+const form = document.getElementById("login-form");
+const loginBtn = document.getElementById("login-btn");
+const errorBanner = document.getElementById("error-banner");
+const lockoutBanner = document.getElementById("lockout-banner");
+const lockoutCountdown = document.getElementById("lockout-countdown");
+const attemptsLeftEl = document.getElementById("attempts-left");
+const userIdInput = document.getElementById("user-id");
+
+function showError(msg) {
+  errorBanner.textContent = msg;
+  errorBanner.classList.remove("hidden");
+}
+function hideError() {
+  errorBanner.classList.add("hidden");
+}
+
+function getLockUntil(userId) {
+  const v = localStorage.getItem(LOCK_KEY_PREFIX + userId);
+  return v ? parseInt(v, 10) : 0;
+}
+function setLockUntil(userId, ts) {
+  localStorage.setItem(LOCK_KEY_PREFIX + userId, String(ts));
+}
+function getAttempts(userId) {
+  return parseInt(localStorage.getItem(ATTEMPT_KEY_PREFIX + userId) || "0", 10);
+}
+function setAttempts(userId, n) {
+  localStorage.setItem(ATTEMPT_KEY_PREFIX + userId, String(n));
+}
+function clearAttempts(userId) {
+  localStorage.removeItem(ATTEMPT_KEY_PREFIX + userId);
+  localStorage.removeItem(LOCK_KEY_PREFIX + userId);
+}
+
+let countdownTimer = null;
+function checkLockState(userId) {
+  const lockUntil = getLockUntil(userId);
+  const now = Date.now();
+  if (lockUntil > now) {
+    lockoutBanner.classList.remove("hidden");
+    loginBtn.disabled = true;
+    if (countdownTimer) clearInterval(countdownTimer);
+    countdownTimer = setInterval(() => {
+      const remain = getLockUntil(userId) - Date.now();
+      if (remain <= 0) {
+        clearInterval(countdownTimer);
+        lockoutBanner.classList.add("hidden");
+        loginBtn.disabled = false;
+        clearAttempts(userId);
+        attemptsLeftEl.textContent = "";
+      } else {
+        const m = Math.floor(remain / 60000);
+        const s = Math.floor((remain % 60000) / 1000);
+        lockoutCountdown.textContent = `${m}:${String(s).padStart(2, "0")}`;
+      }
+    }, 1000);
+    return true;
+  }
+  lockoutBanner.classList.add("hidden");
+  loginBtn.disabled = false;
+  return false;
+}
+
+userIdInput.addEventListener("blur", () => {
+  const userId = userIdInput.value.trim();
+  if (userId) checkLockState(userId);
+});
+
+// 記住帳號
+const savedUser = localStorage.getItem("scw_remember_user");
+if (savedUser) {
+  userIdInput.value = savedUser;
+  document.getElementById("remember-me").checked = true;
+  checkLockState(savedUser);
+}
+
+/**
+ * DEMO 模式驗證：模擬 CheckUserId 回傳代碼（000/100/998）。
+ * 正式環境請替換為：呼叫後端代理 API 轉發至 CheckUserId，並解析 MSG 前三碼。
+ */
+async function demoCheckUserId(userId, password) {
+  await new Promise(r => setTimeout(r, 400)); // 模擬網路延遲
+  const user = DEMO_USERS[userId];
+  if (!user) return { code: "100", msg: "100 帳號密碼錯誤" };
+  if (user.password !== password) return { code: "100", msg: "100 帳號密碼錯誤" };
+  return { code: "000", msg: "000 登入成功", role: user.role, name: user.name };
+}
+
+// TODO: IT 工程師請在此串接正式後端 API（透過伺服器端代理呼叫 CheckUserId）
+async function checkUserId(userId, password) {
+  return demoCheckUserId(userId, password);
+  /*
+  const response = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ USER_ID: userId, PSW: password })
+  });
+  const data = await response.json();
+  const code = data.MSG.split(' ')[0];
+  return { code, msg: data.MSG, role: data.role, name: data.name };
+  */
+}
+
+const ERROR_MESSAGES = {
+  "100": "帳號或密碼錯誤",
+  "200": "AD 認證錯誤",
+  "998": "系統暫時無法使用，請稍後再試",
+  "999": "系統發生錯誤，請聯絡管理員"
+};
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  hideError();
+
+  const userId = userIdInput.value.trim();
+  const password = document.getElementById("password").value;
+
+  if (checkLockState(userId)) return;
+
+  // 防止重複提交
+  loginBtn.disabled = true;
+  loginBtn.textContent = "登入中...";
+
+  try {
+    const result = await checkUserId(userId, password);
+
+    if (result.code === "000") {
+      clearAttempts(userId);
+      const remember = document.getElementById("remember-me").checked;
+      if (remember) localStorage.setItem("scw_remember_user", userId);
+      else localStorage.removeItem("scw_remember_user");
+
+      sessionStorage.setItem("scw_session", JSON.stringify({
+        userId, role: result.role, name: result.name, loginAt: Date.now()
+      }));
+      window.location.href = "dashboard.html";
+      return;
+    }
+
+    // 失敗：累計錯誤次數
+    const attempts = getAttempts(userId) + 1;
+    setAttempts(userId, attempts);
+    const remain = MAX_ATTEMPTS - attempts;
+
+    if (remain <= 0) {
+      setLockUntil(userId, Date.now() + LOCKOUT_MINUTES * 60 * 1000);
+      checkLockState(userId);
+      showError(`已連續輸入錯誤 ${MAX_ATTEMPTS} 次，帳號已鎖定（展示模擬）${LOCKOUT_MINUTES} 分鐘。`);
+      attemptsLeftEl.textContent = "";
+    } else {
+      showError(ERROR_MESSAGES[result.code] || "系統發生錯誤，請聯絡管理員");
+      attemptsLeftEl.textContent = `尚可嘗試 ${remain} 次`;
+    }
+  } finally {
+    loginBtn.disabled = getLockUntil(userId) > Date.now();
+    loginBtn.textContent = "登入";
+  }
+});
+</script>
+</body>
+</html>

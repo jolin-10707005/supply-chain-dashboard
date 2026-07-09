@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>供應鏈與倉儲物流戰情室</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = { darkMode: 'class' };
+</script>
+
+<!-- React 18（UMD build）-->
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+<!-- 圖表 -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<!-- Excel 上傳解析 -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<!-- 匯出 PDF / 圖檔 -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100">
+
+  <div id="root">
+    <!-- 首次載入 Loading 畫面（React 掛載前顯示，避免白畫面） -->
+    <div class="min-h-screen flex items-center justify-center">
+      <div class="text-center">
+        <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+        <p class="text-slate-500 text-sm">戰情室載入中...</p>
+      </div>
+    </div>
+  </div>
+
+  <!--
+    script.js 為 app.jsx 預先編譯後的純 JS（React.createElement，classic runtime）。
+    正式環境不應在瀏覽器端執行 Babel/eval：如需修改邏輯，請編輯 app.jsx 後重新編譯，
+    參考 openspec/README.md 的「重新編譯」章節。
+  -->
+  <script src="script.js" defer></script>
+</body>
+</html>
