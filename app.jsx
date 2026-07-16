@@ -639,6 +639,15 @@ function DashboardPage({ role, skuData, setSkuData, turnoverTrend, shipments, pi
   }, [skuData, warehouseFilter, categoryFilter, statusFilter]);
 
   const turnoverDays = useMemo(() => calcTurnoverDays(filteredSku), [filteredSku]);
+  const turnoverDaysUnfiltered = useMemo(() => calcTurnoverDays(skuData), [skuData]);
+  const isFiltered = statusFilter || warehouseFilter !== "all" || categoryFilter !== "all";
+  // 庫存週轉趨勢圖沒有逐日的 SKU 明細，改以「篩選後 / 全體」週轉天數比例，
+  // 等比例縮放 7 天趨勢線，讓圖表隨篩選條件同步變化，而非維持固定不變。
+  const turnoverTrendDisplay = useMemo(() => {
+    if (!isFiltered) return turnoverTrend;
+    const ratio = turnoverDaysUnfiltered > 0 ? turnoverDays / turnoverDaysUnfiltered : 1;
+    return turnoverTrend.map(d => ({ ...d, turnoverDays: Math.round(d.turnoverDays * ratio * 10) / 10 }));
+  }, [turnoverTrend, isFiltered, turnoverDays, turnoverDaysUnfiltered]);
   const { stockout, stale } = useMemo(() => calcStockoutStaleCounts(skuData), [skuData]);
   const onTimeRate = useMemo(() => calcOnTimeRate(shipments), [shipments]);
   const pickingEfficiency = useMemo(() => calcPickingEfficiency(pickingData), [pickingData]);
@@ -729,10 +738,12 @@ function DashboardPage({ role, skuData, setSkuData, turnoverTrend, shipments, pi
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow p-4 lg:col-span-2">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-200">庫存週轉趨勢（最近7天）</h3>
+            <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-200">
+              庫存週轉趨勢（最近7天）{isFiltered && <span className="ml-2 text-xs font-normal text-blue-600">已篩選：{statusFilter || `${warehouseFilter !== "all" ? warehouseFilter : ""}${categoryFilter !== "all" ? categoryFilter : ""}`}</span>}
+            </h3>
             <button onClick={() => exportChartAsPng("庫存週轉趨勢")} className="text-xs text-blue-600 hover:underline no-print">下載圖檔</button>
           </div>
-          <div style={{ height: 240 }}><TurnoverTrendChart data={turnoverTrend} thresholds={thresholds} /></div>
+          <div style={{ height: 240 }}><TurnoverTrendChart data={turnoverTrendDisplay} thresholds={thresholds} /></div>
         </div>
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow p-4">
           <div className="flex items-center justify-between mb-2">

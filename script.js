@@ -782,6 +782,18 @@ function DashboardPage({
     return skuData.filter(s => (warehouseFilter === "all" || s.warehouse === warehouseFilter) && (categoryFilter === "all" || s.category === categoryFilter) && (!statusFilter || s.status === statusFilter));
   }, [skuData, warehouseFilter, categoryFilter, statusFilter]);
   const turnoverDays = useMemo(() => calcTurnoverDays(filteredSku), [filteredSku]);
+  const turnoverDaysUnfiltered = useMemo(() => calcTurnoverDays(skuData), [skuData]);
+  const isFiltered = statusFilter || warehouseFilter !== "all" || categoryFilter !== "all";
+  // 庫存週轉趨勢圖沒有逐日的 SKU 明細，改以「篩選後 / 全體」週轉天數比例，
+  // 等比例縮放 7 天趨勢線，讓圖表隨篩選條件同步變化，而非維持固定不變。
+  const turnoverTrendDisplay = useMemo(() => {
+    if (!isFiltered) return turnoverTrend;
+    const ratio = turnoverDaysUnfiltered > 0 ? turnoverDays / turnoverDaysUnfiltered : 1;
+    return turnoverTrend.map(d => ({
+      ...d,
+      turnoverDays: Math.round(d.turnoverDays * ratio * 10) / 10
+    }));
+  }, [turnoverTrend, isFiltered, turnoverDays, turnoverDaysUnfiltered]);
   const {
     stockout,
     stale
@@ -957,7 +969,9 @@ function DashboardPage({
     className: "flex items-center justify-between mb-2"
   }, /*#__PURE__*/React.createElement("h3", {
     className: "text-sm font-semibold text-slate-600 dark:text-slate-200"
-  }, "庫存週轉趨勢（最近7天）"), /*#__PURE__*/React.createElement("button", {
+  }, "庫存週轉趨勢（最近7天）", isFiltered && /*#__PURE__*/React.createElement("span", {
+    className: "ml-2 text-xs font-normal text-blue-600"
+  }, "已篩選：", statusFilter || `${warehouseFilter !== "all" ? warehouseFilter : ""}${categoryFilter !== "all" ? categoryFilter : ""}`)), /*#__PURE__*/React.createElement("button", {
     onClick: () => exportChartAsPng("庫存週轉趨勢"),
     className: "text-xs text-blue-600 hover:underline no-print"
   }, "下載圖檔")), /*#__PURE__*/React.createElement("div", {
@@ -965,7 +979,7 @@ function DashboardPage({
       height: 240
     }
   }, /*#__PURE__*/React.createElement(TurnoverTrendChart, {
-    data: turnoverTrend,
+    data: turnoverTrendDisplay,
     thresholds: thresholds
   }))), /*#__PURE__*/React.createElement("div", {
     className: "bg-white dark:bg-slate-800 rounded-xl shadow p-4"
