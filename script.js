@@ -722,18 +722,16 @@ function exportChartAsPng(chartName) {
 // 9. 儀表板主頁
 // ----------------------------------------------------------------------------
 function DashboardPage({
-  role
+  role,
+  skuData,
+  setSkuData,
+  turnoverTrend,
+  shipments,
+  pickingData,
+  countData,
+  thresholds
 }) {
   const toast = useToast();
-  const [skuData, setSkuData] = useState(genSkuData);
-  const [turnoverTrend] = useState(genTurnoverTrend);
-  const [shipments] = useState(genShipmentData);
-  const [pickingData] = useState(genPickingData);
-  const [countData] = useState(genCountData);
-  const [thresholds] = useState(() => {
-    const saved = localStorage.getItem("scw_thresholds");
-    return saved ? JSON.parse(saved) : DEFAULT_THRESHOLDS;
-  });
   const [warehouseFilter, setWarehouseFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState(null);
@@ -1220,12 +1218,12 @@ function DashboardSettingsPage() {
 // ----------------------------------------------------------------------------
 // 12. 系統設定（管理員專用）- 業務門檻與登入安全
 // ----------------------------------------------------------------------------
-function SystemSettingsPage() {
+function SystemSettingsPage({
+  thresholds,
+  setThresholds
+}) {
   const toast = useToast();
-  const [form, setForm] = useState(() => {
-    const saved = localStorage.getItem("scw_thresholds");
-    return saved ? JSON.parse(saved) : DEFAULT_THRESHOLDS;
-  });
+  const [form, setForm] = useState(thresholds);
   function update(key, value) {
     setForm(prev => ({
       ...prev,
@@ -1234,7 +1232,8 @@ function SystemSettingsPage() {
   }
   function save() {
     localStorage.setItem("scw_thresholds", JSON.stringify(form));
-    toast("系統門檻設定已儲存，將於下次資料更新時套用。", "success");
+    setThresholds(form);
+    toast("系統門檻設定已儲存並立即套用。", "success");
   }
   const fields = [{
     key: "turnoverWarn",
@@ -1381,6 +1380,18 @@ function AppShell() {
   const [active, setActive] = useState("dashboard");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("scw_dark") === "1");
+
+  // 業務資料狀態集中於此，維持在整個登入期間內穩定，
+  // 只有透過 Excel 上傳或系統設定才會變更，切換頁籤不會重新產生。
+  const [skuData, setSkuData] = useState(genSkuData);
+  const [turnoverTrend] = useState(genTurnoverTrend);
+  const [shipments] = useState(genShipmentData);
+  const [pickingData] = useState(genPickingData);
+  const [countData] = useState(genCountData);
+  const [thresholds, setThresholds] = useState(() => {
+    const saved = localStorage.getItem("scw_thresholds");
+    return saved ? JSON.parse(saved) : DEFAULT_THRESHOLDS;
+  });
   useEffect(() => {
     const raw = sessionStorage.getItem("scw_session");
     if (!raw) {
@@ -1423,8 +1434,18 @@ function AppShell() {
   }), /*#__PURE__*/React.createElement("main", {
     className: "flex-1 p-4 sm:p-6"
   }, active === "dashboard" && /*#__PURE__*/React.createElement(DashboardPage, {
-    role: session.role
-  }), active === "users" && session.role === "admin" && /*#__PURE__*/React.createElement(UserPermissionPage, null), active === "cards" && session.role === "admin" && /*#__PURE__*/React.createElement(DashboardSettingsPage, null), active === "settings" && session.role === "admin" && /*#__PURE__*/React.createElement(SystemSettingsPage, null))));
+    role: session.role,
+    skuData: skuData,
+    setSkuData: setSkuData,
+    turnoverTrend: turnoverTrend,
+    shipments: shipments,
+    pickingData: pickingData,
+    countData: countData,
+    thresholds: thresholds
+  }), active === "users" && session.role === "admin" && /*#__PURE__*/React.createElement(UserPermissionPage, null), active === "cards" && session.role === "admin" && /*#__PURE__*/React.createElement(DashboardSettingsPage, null), active === "settings" && session.role === "admin" && /*#__PURE__*/React.createElement(SystemSettingsPage, {
+    thresholds: thresholds,
+    setThresholds: setThresholds
+  }))));
 }
 function App() {
   return /*#__PURE__*/React.createElement(ToastProvider, null, /*#__PURE__*/React.createElement(AppShell, null));

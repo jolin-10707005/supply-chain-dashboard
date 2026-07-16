@@ -590,17 +590,8 @@ function exportChartAsPng(chartName) {
 // ----------------------------------------------------------------------------
 // 9. 儀表板主頁
 // ----------------------------------------------------------------------------
-function DashboardPage({ role }) {
+function DashboardPage({ role, skuData, setSkuData, turnoverTrend, shipments, pickingData, countData, thresholds }) {
   const toast = useToast();
-  const [skuData, setSkuData] = useState(genSkuData);
-  const [turnoverTrend] = useState(genTurnoverTrend);
-  const [shipments] = useState(genShipmentData);
-  const [pickingData] = useState(genPickingData);
-  const [countData] = useState(genCountData);
-  const [thresholds] = useState(() => {
-    const saved = localStorage.getItem("scw_thresholds");
-    return saved ? JSON.parse(saved) : DEFAULT_THRESHOLDS;
-  });
   const [warehouseFilter, setWarehouseFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState(null);
@@ -918,19 +909,17 @@ function DashboardSettingsPage() {
 // ----------------------------------------------------------------------------
 // 12. 系統設定（管理員專用）- 業務門檻與登入安全
 // ----------------------------------------------------------------------------
-function SystemSettingsPage() {
+function SystemSettingsPage({ thresholds, setThresholds }) {
   const toast = useToast();
-  const [form, setForm] = useState(() => {
-    const saved = localStorage.getItem("scw_thresholds");
-    return saved ? JSON.parse(saved) : DEFAULT_THRESHOLDS;
-  });
+  const [form, setForm] = useState(thresholds);
 
   function update(key, value) {
     setForm(prev => ({ ...prev, [key]: Number(value) }));
   }
   function save() {
     localStorage.setItem("scw_thresholds", JSON.stringify(form));
-    toast("系統門檻設定已儲存，將於下次資料更新時套用。", "success");
+    setThresholds(form);
+    toast("系統門檻設定已儲存並立即套用。", "success");
   }
 
   const fields = [
@@ -1033,6 +1022,18 @@ function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("scw_dark") === "1");
 
+  // 業務資料狀態集中於此，維持在整個登入期間內穩定，
+  // 只有透過 Excel 上傳或系統設定才會變更，切換頁籤不會重新產生。
+  const [skuData, setSkuData] = useState(genSkuData);
+  const [turnoverTrend] = useState(genTurnoverTrend);
+  const [shipments] = useState(genShipmentData);
+  const [pickingData] = useState(genPickingData);
+  const [countData] = useState(genCountData);
+  const [thresholds, setThresholds] = useState(() => {
+    const saved = localStorage.getItem("scw_thresholds");
+    return saved ? JSON.parse(saved) : DEFAULT_THRESHOLDS;
+  });
+
   useEffect(() => {
     const raw = sessionStorage.getItem("scw_session");
     if (!raw) { window.location.href = "index.html"; return; }
@@ -1063,10 +1064,18 @@ function AppShell() {
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar session={session} darkMode={darkMode} onToggleDark={() => setDarkMode(d => !d)} onLogout={logout} onOpenMobile={() => setMobileOpen(true)} />
         <main className="flex-1 p-4 sm:p-6">
-          {active === "dashboard" && <DashboardPage role={session.role} />}
+          {active === "dashboard" && (
+            <DashboardPage
+              role={session.role}
+              skuData={skuData} setSkuData={setSkuData}
+              turnoverTrend={turnoverTrend} shipments={shipments}
+              pickingData={pickingData} countData={countData}
+              thresholds={thresholds}
+            />
+          )}
           {active === "users" && session.role === "admin" && <UserPermissionPage />}
           {active === "cards" && session.role === "admin" && <DashboardSettingsPage />}
-          {active === "settings" && session.role === "admin" && <SystemSettingsPage />}
+          {active === "settings" && session.role === "admin" && <SystemSettingsPage thresholds={thresholds} setThresholds={setThresholds} />}
         </main>
       </div>
     </div>
