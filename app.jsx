@@ -232,7 +232,11 @@ function KpiComparison({ comparison }) {
   );
 }
 
-function KpiCard({ title, value, unit, subtitle, tone, danger, onClick, comparison }) {
+// level（若提供）："normal" | "warn" | "danger" — 依業務門檻動態決定卡片顏色，
+// 會覆蓋固定的 tone。danger 層級加上呼吸燈動畫，warn 層級僅變色不閃動。
+const LEVEL_TONE = { normal: "green", warn: "orange", danger: "red" };
+
+function KpiCard({ title, value, unit, subtitle, tone, danger, onClick, comparison, level }) {
   const toneMap = {
     red: "border-l-red-500 text-red-600",
     orange: "border-l-orange-500 text-orange-600",
@@ -240,11 +244,13 @@ function KpiCard({ title, value, unit, subtitle, tone, danger, onClick, comparis
     blue: "border-l-blue-600 text-blue-600",
     teal: "border-l-teal-600 text-teal-600"
   };
+  const effectiveTone = level ? LEVEL_TONE[level] : tone;
+  const pulse = level ? level === "danger" : danger;
   return (
     <div onClick={onClick}
-         className={`bg-white dark:bg-slate-800 rounded-xl shadow p-4 border-l-4 ${toneMap[tone]} ${danger ? "pulse-danger" : ""} ${onClick ? "cursor-pointer hover:shadow-md" : ""} transition`}>
+         className={`bg-white dark:bg-slate-800 rounded-xl shadow p-4 border-l-4 ${toneMap[effectiveTone]} ${pulse ? "pulse-danger" : ""} ${onClick ? "cursor-pointer hover:shadow-md" : ""} transition`}>
       <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{title}</p>
-      <p className={`kpi-value mt-1 text-2xl font-bold ${toneMap[tone].split(" ")[1]}`}>
+      <p className={`kpi-value mt-1 text-2xl font-bold ${toneMap[effectiveTone].split(" ")[1]}`}>
         {value}<span className="text-sm font-medium ml-1">{unit}</span>
       </p>
       <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500 leading-tight">{subtitle}</p>
@@ -653,6 +659,11 @@ function DashboardPage({ role, skuData, setSkuData, turnoverTrend, shipments, pi
   const pickingEfficiency = useMemo(() => calcPickingEfficiency(pickingData), [pickingData]);
   const { diffRate, lossValue } = useMemo(() => calcDiffLoss(countData), [countData]);
 
+  // 依業務門檻計算三階段燈號（normal 綠 / warn 橙 / danger 紅），取代先前固定不變的卡片顏色
+  const turnoverLevel = turnoverDays >= thresholds.turnoverDanger ? "danger" : turnoverDays >= thresholds.turnoverWarn ? "warn" : "normal";
+  const onTimeLevel = onTimeRate >= thresholds.onTimeTarget ? "normal" : "danger";
+  const diffLevel = diffRate >= thresholds.diffRateDanger ? "danger" : diffRate >= thresholds.diffRateWarn ? "warn" : "normal";
+
   const statusCounts = useMemo(() => {
     const c = { "正常": 0, "低庫存": 0, "呆滯": 0, "缺貨": 0 };
     skuData.forEach(s => { c[s.status] = (c[s.status] || 0) + 1; });
@@ -712,8 +723,7 @@ function DashboardPage({ role, skuData, setSkuData, turnoverTrend, shipments, pi
 
       {/* KPI 卡片 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <KpiCard title="庫存週轉天數" value={turnoverDays} unit="天" tone="red"
-                 danger={turnoverDays >= thresholds.turnoverDanger}
+        <KpiCard title="庫存週轉天數" value={turnoverDays} unit="天" level={turnoverLevel}
                  subtitle={`警戒 ${thresholds.turnoverWarn} 天 / 危險 ${thresholds.turnoverDanger} 天`}
                  comparison={{ label: "較上月", delta: turnoverDays - LAST_MONTH_BASELINE.turnoverDays, unit: "天", goodDirection: "down" }} />
         <KpiCard title="缺貨／呆滯預警" value={`${stockout} / ${stale}`} unit="SKU" tone="orange"
@@ -721,15 +731,13 @@ function DashboardPage({ role, skuData, setSkuData, turnoverTrend, shipments, pi
                  subtitle="缺貨SKU數 / 呆滯SKU數"
                  comparison={{ label: "較上月缺貨數", delta: stockout - LAST_MONTH_BASELINE.stockout, unit: "個", goodDirection: "down" }}
                  onClick={() => setStatusFilter(statusFilter === "缺貨" ? null : "缺貨")} />
-        <KpiCard title="出貨時效達成率" value={onTimeRate} unit="%" tone="green"
-                 danger={onTimeRate < thresholds.onTimeTarget}
+        <KpiCard title="出貨時效達成率" value={onTimeRate} unit="%" level={onTimeLevel}
                  subtitle={`目標 ${thresholds.onTimeTarget}%`}
                  comparison={{ label: "與目標相比", delta: Math.round((onTimeRate - thresholds.onTimeTarget) * 10) / 10, unit: "%", goodDirection: "up" }} />
         <KpiCard title="揀貨效率" value={pickingEfficiency} unit="單/小時" tone="blue"
                  subtitle="全倉平均每人每小時揀貨量"
                  comparison={{ label: "較上月", delta: pickingEfficiency - LAST_MONTH_BASELINE.pickingEfficiency, unit: "單/小時", goodDirection: "up" }} />
-        <KpiCard title="盤差率與損耗" value={diffRate} unit="%" tone="teal"
-                 danger={diffRate >= thresholds.diffRateDanger}
+        <KpiCard title="盤差率與損耗" value={diffRate} unit="%" level={diffLevel}
                  subtitle={`損耗金額 $${lossValue.toLocaleString()}`}
                  comparison={{ label: "較上月", delta: Math.round((diffRate - LAST_MONTH_BASELINE.diffRate) * 10) / 10, unit: "%", goodDirection: "down" }} />
       </div>

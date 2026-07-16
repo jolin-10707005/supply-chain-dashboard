@@ -257,6 +257,14 @@ function KpiComparison({
     className: `ml-1 font-semibold ${colorClass}`
   }, arrow, " ", rounded, unit));
 }
+
+// level（若提供）："normal" | "warn" | "danger" — 依業務門檻動態決定卡片顏色，
+// 會覆蓋固定的 tone。danger 層級加上呼吸燈動畫，warn 層級僅變色不閃動。
+const LEVEL_TONE = {
+  normal: "green",
+  warn: "orange",
+  danger: "red"
+};
 function KpiCard({
   title,
   value,
@@ -265,7 +273,8 @@ function KpiCard({
   tone,
   danger,
   onClick,
-  comparison
+  comparison,
+  level
 }) {
   const toneMap = {
     red: "border-l-red-500 text-red-600",
@@ -274,13 +283,15 @@ function KpiCard({
     blue: "border-l-blue-600 text-blue-600",
     teal: "border-l-teal-600 text-teal-600"
   };
+  const effectiveTone = level ? LEVEL_TONE[level] : tone;
+  const pulse = level ? level === "danger" : danger;
   return /*#__PURE__*/React.createElement("div", {
     onClick: onClick,
-    className: `bg-white dark:bg-slate-800 rounded-xl shadow p-4 border-l-4 ${toneMap[tone]} ${danger ? "pulse-danger" : ""} ${onClick ? "cursor-pointer hover:shadow-md" : ""} transition`
+    className: `bg-white dark:bg-slate-800 rounded-xl shadow p-4 border-l-4 ${toneMap[effectiveTone]} ${pulse ? "pulse-danger" : ""} ${onClick ? "cursor-pointer hover:shadow-md" : ""} transition`
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-xs font-medium text-slate-500 dark:text-slate-400"
   }, title), /*#__PURE__*/React.createElement("p", {
-    className: `kpi-value mt-1 text-2xl font-bold ${toneMap[tone].split(" ")[1]}`
+    className: `kpi-value mt-1 text-2xl font-bold ${toneMap[effectiveTone].split(" ")[1]}`
   }, value, /*#__PURE__*/React.createElement("span", {
     className: "text-sm font-medium ml-1"
   }, unit)), /*#__PURE__*/React.createElement("p", {
@@ -804,6 +815,11 @@ function DashboardPage({
     diffRate,
     lossValue
   } = useMemo(() => calcDiffLoss(countData), [countData]);
+
+  // 依業務門檻計算三階段燈號（normal 綠 / warn 橙 / danger 紅），取代先前固定不變的卡片顏色
+  const turnoverLevel = turnoverDays >= thresholds.turnoverDanger ? "danger" : turnoverDays >= thresholds.turnoverWarn ? "warn" : "normal";
+  const onTimeLevel = onTimeRate >= thresholds.onTimeTarget ? "normal" : "danger";
+  const diffLevel = diffRate >= thresholds.diffRateDanger ? "danger" : diffRate >= thresholds.diffRateWarn ? "warn" : "normal";
   const statusCounts = useMemo(() => {
     const c = {
       "正常": 0,
@@ -900,8 +916,7 @@ function DashboardPage({
     title: "庫存週轉天數",
     value: turnoverDays,
     unit: "天",
-    tone: "red",
-    danger: turnoverDays >= thresholds.turnoverDanger,
+    level: turnoverLevel,
     subtitle: `警戒 ${thresholds.turnoverWarn} 天 / 危險 ${thresholds.turnoverDanger} 天`,
     comparison: {
       label: "較上月",
@@ -927,8 +942,7 @@ function DashboardPage({
     title: "出貨時效達成率",
     value: onTimeRate,
     unit: "%",
-    tone: "green",
-    danger: onTimeRate < thresholds.onTimeTarget,
+    level: onTimeLevel,
     subtitle: `目標 ${thresholds.onTimeTarget}%`,
     comparison: {
       label: "與目標相比",
@@ -952,8 +966,7 @@ function DashboardPage({
     title: "盤差率與損耗",
     value: diffRate,
     unit: "%",
-    tone: "teal",
-    danger: diffRate >= thresholds.diffRateDanger,
+    level: diffLevel,
     subtitle: `損耗金額 $${lossValue.toLocaleString()}`,
     comparison: {
       label: "較上月",
