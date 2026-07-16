@@ -64,6 +64,12 @@ tbody tr.data-row:hover { background-color: rgba(37, 99, 235, 0.06); }
 
 /* 側邊欄收合(手機) */
 .sidebar-mobile-hidden { transform: translateX(-100%); }
+/* 桌機（lg 以上）側邊欄一律常駐顯示，不受手機/平板抽屜開關狀態影響。
+   刻意不依賴 Tailwind 的 translate-x-0 複合變數工具類別（--tw-translate-x 等），
+   避免因相依變數未定義導致 transform 失效（曾在平板寬度下造成選單開啟後仍卡在畫面外的問題）。 */
+@media (min-width: 1024px) {
+  .sidebar-mobile-hidden { transform: none; }
+}
 
 /* Skeleton loading */
 @keyframes skeleton-pulse {

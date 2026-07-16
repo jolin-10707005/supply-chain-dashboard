@@ -966,7 +966,7 @@ function Sidebar({ role, active, onSelect, mobileOpen, onCloseMobile }) {
     <>
       {mobileOpen && <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={onCloseMobile}></div>}
       <aside className={`fixed lg:static top-0 left-0 h-full w-64 bg-[#0f1c3f] text-white z-40 transition-transform duration-200
-                          ${mobileOpen ? "translate-x-0" : "sidebar-mobile-hidden"} lg:translate-x-0`}>
+                          ${mobileOpen ? "" : "sidebar-mobile-hidden"}`}>
         <div className="px-5 py-5 border-b border-white/10 flex items-center gap-2">
           <span className="text-xl">📦</span>
           <div>

@@ -1318,7 +1318,7 @@ function Sidebar({
     onClick: onCloseMobile
   }), /*#__PURE__*/React.createElement("aside", {
     className: `fixed lg:static top-0 left-0 h-full w-64 bg-[#0f1c3f] text-white z-40 transition-transform duration-200
-                          ${mobileOpen ? "translate-x-0" : "sidebar-mobile-hidden"} lg:translate-x-0`
+                          ${mobileOpen ? "" : "sidebar-mobile-hidden"}`
   }, /*#__PURE__*/React.createElement("div", {
     className: "px-5 py-5 border-b border-white/10 flex items-center gap-2"
   }, /*#__PURE__*/React.createElement("span", {
