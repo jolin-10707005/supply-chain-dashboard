@@ -24,6 +24,15 @@ const DEFAULT_THRESHOLDS = {
 // TODO: IT 工程師請在此串接真實後端 API base URL
 const API_BASE = "/api"; // 目前使用 Mock Data，不會實際發送請求
 
+// 上月同期參考基準（Mock）。正式環境應改為查詢上個月同一批指標的實際歷史數據。
+const LAST_MONTH_BASELINE = {
+  turnoverDays: 27.2,
+  stockout: 4,
+  stale: 11,
+  pickingEfficiency: 108,
+  diffRate: 1.3
+};
+
 // ----------------------------------------------------------------------------
 // 1. Mock Data 產生
 // ----------------------------------------------------------------------------
@@ -202,7 +211,28 @@ function ToastProvider({ children }) {
 // ----------------------------------------------------------------------------
 // 4. 共用 UI 元件
 // ----------------------------------------------------------------------------
-function KpiCard({ title, value, unit, subtitle, tone, danger, onClick }) {
+// comparison: { label: "較上月"|"與目標相比", delta: number, unit: string, goodDirection: "up"|"down" }
+// goodDirection 表示「delta 為正向變化時，方向為 up 代表變好，down 代表變好」
+function KpiComparison({ comparison }) {
+  if (!comparison) return null;
+  const { label, delta, unit, goodDirection } = comparison;
+  const rounded = Math.round(Math.abs(delta) * 10) / 10;
+  if (rounded === 0) {
+    return <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">{label}持平</p>;
+  }
+  const isIncrease = delta > 0;
+  const isGood = goodDirection === "up" ? isIncrease : !isIncrease;
+  const arrow = isIncrease ? "▲" : "▼";
+  const colorClass = isGood ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-500";
+  return (
+    <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+      {label}
+      <span className={`ml-1 font-semibold ${colorClass}`}>{arrow} {rounded}{unit}</span>
+    </p>
+  );
+}
+
+function KpiCard({ title, value, unit, subtitle, tone, danger, onClick, comparison }) {
   const toneMap = {
     red: "border-l-red-500 text-red-600",
     orange: "border-l-orange-500 text-orange-600",
@@ -218,6 +248,7 @@ function KpiCard({ title, value, unit, subtitle, tone, danger, onClick }) {
         {value}<span className="text-sm font-medium ml-1">{unit}</span>
       </p>
       <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500 leading-tight">{subtitle}</p>
+      <KpiComparison comparison={comparison} />
     </div>
   );
 }
@@ -672,19 +703,24 @@ function DashboardPage({ role, skuData, setSkuData, turnoverTrend, shipments, pi
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <KpiCard title="庫存週轉天數" value={turnoverDays} unit="天" tone="red"
                  danger={turnoverDays >= thresholds.turnoverDanger}
-                 subtitle={`警戒 ${thresholds.turnoverWarn} 天 / 危險 ${thresholds.turnoverDanger} 天`} />
+                 subtitle={`警戒 ${thresholds.turnoverWarn} 天 / 危險 ${thresholds.turnoverDanger} 天`}
+                 comparison={{ label: "較上月", delta: turnoverDays - LAST_MONTH_BASELINE.turnoverDays, unit: "天", goodDirection: "down" }} />
         <KpiCard title="缺貨／呆滯預警" value={`${stockout} / ${stale}`} unit="SKU" tone="orange"
                  danger={stockout > 5}
                  subtitle="缺貨SKU數 / 呆滯SKU數"
+                 comparison={{ label: "較上月缺貨數", delta: stockout - LAST_MONTH_BASELINE.stockout, unit: "個", goodDirection: "down" }}
                  onClick={() => setStatusFilter(statusFilter === "缺貨" ? null : "缺貨")} />
         <KpiCard title="出貨時效達成率" value={onTimeRate} unit="%" tone="green"
                  danger={onTimeRate < thresholds.onTimeTarget}
-                 subtitle={`目標 ${thresholds.onTimeTarget}%`} />
+                 subtitle={`目標 ${thresholds.onTimeTarget}%`}
+                 comparison={{ label: "與目標相比", delta: Math.round((onTimeRate - thresholds.onTimeTarget) * 10) / 10, unit: "%", goodDirection: "up" }} />
         <KpiCard title="揀貨效率" value={pickingEfficiency} unit="單/小時" tone="blue"
-                 subtitle="全倉平均每人每小時揀貨量" />
+                 subtitle="全倉平均每人每小時揀貨量"
+                 comparison={{ label: "較上月", delta: pickingEfficiency - LAST_MONTH_BASELINE.pickingEfficiency, unit: "單/小時", goodDirection: "up" }} />
         <KpiCard title="盤差率與損耗" value={diffRate} unit="%" tone="teal"
                  danger={diffRate >= thresholds.diffRateDanger}
-                 subtitle={`損耗金額 $${lossValue.toLocaleString()}`} />
+                 subtitle={`損耗金額 $${lossValue.toLocaleString()}`}
+                 comparison={{ label: "較上月", delta: Math.round((diffRate - LAST_MONTH_BASELINE.diffRate) * 10) / 10, unit: "%", goodDirection: "down" }} />
       </div>
 
       {/* 圖表區 */}
