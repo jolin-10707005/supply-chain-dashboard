@@ -428,7 +428,9 @@ function StatusDonutChart({
         }
       },
       onClick: (evt, elements) => {
-        if (elements.length && onSliceClick) onSliceClick(labels[elements[0].index]);
+        if (!onSliceClick) return;
+        // 點擊到扇形：切換篩選；點擊圖表空白處（未命中任何扇形）：恢復全選
+        onSliceClick(elements.length ? labels[elements[0].index] : null);
       }
     }
   }), [counts]);
